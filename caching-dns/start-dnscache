@@ -1,0 +1,6 @@
+#!/bin/sh
+cp /data/servers/* /etc/dnscache/root/servers/
+cp /data/ip/* /etc/dnscache/root/ip/
+ln -s /etc/dnscache /service/
+cd /service
+svscan

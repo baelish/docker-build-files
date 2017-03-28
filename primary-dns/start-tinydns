@@ -1,0 +1,33 @@
+#!/bin/sh
+
+pid=0
+
+# Start Application.
+runApp() {
+    updateApp
+    cd /service
+    svscan &
+    pid=${!}
+    wait $pid
+}
+
+# Terminate Application.
+terminateApp() {
+    if [ $pid -ne 0 ]; then
+        kill -SIGTERM "$pid"
+    fi
+}
+
+# Update Application.
+updateApp() {
+    cd /etc/tinydns/root/
+    make
+}
+
+# When SIGTERM is sent, terminate Application.
+trap 'terminateApp' SIGTERM
+
+rm -f /etc/tinydns/root/data
+ln -s /data/tinydns.data /etc/tinydns/root/data
+ln -s /etc/tinydns /service/
+runApp

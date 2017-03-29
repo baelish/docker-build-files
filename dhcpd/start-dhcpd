@@ -1,0 +1,23 @@
+#!/bin/sh
+
+pid=0
+
+runApp() {
+    chown dhcpd:dhcpd /data/*
+    dhcpd -cf /data/dhcpd.conf -lf /data/dhcpd.leases  -user dhcpd --no-pid -f
+    pid=${!}
+    wait $pid
+}
+
+
+# Terminate Application.
+terminateApp() {
+    if [ $pid -ne 0 ]; then
+        kill -SIGTERM "$pid"
+    fi
+}
+
+# When SIGTERM is sent, terminate Application.
+trap 'terminateApp' SIGTERM
+
+runApp

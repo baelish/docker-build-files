@@ -1,6 +1,31 @@
 #!/bin/sh
-cp /data/servers/* /etc/dnscache/root/servers/
-cp /data/ip/* /etc/dnscache/root/ip/
+
+pid=0
+
+runApp() {
+    updateApp
+    cd /service
+    svscan &
+    pid=${!}
+    wait $pid
+}
+
+
+# Terminate Application.
+terminateApp() {
+    if [ $pid -ne 0 ]; then
+        kill -SIGTERM "$pid"
+    fi
+}
+
+# Update Application
+updateApp(){
+    cp /data/servers/* /etc/dnscache/root/servers/
+    cp /data/ip/* /etc/dnscache/root/ip/
+}
+
+# When SIGTERM is sent, terminate Application.
+trap 'terminateApp' SIGTERM
+
 ln -s /etc/dnscache /service/
-cd /service
-svscan
+runApp

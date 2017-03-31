@@ -3,7 +3,7 @@
 pid=0
 
 runApp() {
-    chown dhcpd:dhcpd /data/*
+    chown -R dhcpd:dhcpd /data
     dhcpd -cf /data/dhcpd.conf -lf /data/dhcpd.leases  -user dhcpd --no-pid -f
     pid=${!}
     wait $pid

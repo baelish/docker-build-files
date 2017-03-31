@@ -20,8 +20,9 @@ terminateApp() {
 
 # Update Application
 updateApp(){
-    cp /data/servers/* /etc/dnscache/root/servers/
+    cp /data/env/* /etc/dnscache/env/
     cp /data/ip/* /etc/dnscache/root/ip/
+    cp /data/servers/* /etc/dnscache/root/servers/
 }
 
 # When SIGTERM is sent, terminate Application.

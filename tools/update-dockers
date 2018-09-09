@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+IFS=$'\t\n'
+
+dockerHubUser="baelish"
+dockerHubPass="$(pass websites/docker-hub | head -n1)"
+
+getDockerHubAuthToken() {
+    curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'${dockerHubUser}'", "password": "'${dockerHubPass}'"}' https://hub.docker.com/v2/users/login/ | jq -r .token
+}
+
+apiCall() {
+    if [[ -z "${DOCKER_HUB_AUTH_TOKEN:-}" ]]; then
+        export DOCKER_HUB_AUTH_TOKEN=$(getDockerHubAuthToken)
+    fi
+    path=${1:-}
+    curl -s -H "Authorization: JWT ${DOCKER_HUB_AUTH_TOKEN}" "https://hub.docker.com/$path"
+}
+
+logEntry() {
+    type="${1^^}"
+    shift
+
+    if [[ "$type" == "DEBUG" && -z "${DEBUG:-}" ]]; then
+        return
+    fi
+
+    echo "${type}: $@"
+
+}
+
+upgradeDockers() {
+    repos=( $(apiCall v2/repositories/${dockerHubUser}/?page_size=10000 | jq -r '.results|.[]|.name') )
+
+    while [[ ${!repos[@]} > 0 ]]; do
+        for i in "${!repos[@]}"; do
+            logEntry "DEBUG" "Processing: $dockerHubUser/${repos[$i]}"
+
+            if ! [[ -e "../${repos[$i]}/Dockerfile" ]]; then
+                logEntry "WARN" "\"../${repos[$i]}/Dockerfile\" not found skipping ${repos[$i]}."
+
+                continue
+            fi
+            dependency="$(grep FROM ../${repos[$i]}/Dockerfile)"
+            dependency=${dependency%:*}
+            dependency=${dependency#FROM }
+
+            logEntry "DEBUG" "Dependency '$dependency'"
+
+            if [[ "${dependency%/*}" == "$dockerHubUser" ]]; then
+                for check in "${repos[@]}"; do
+                    if [[ "${dependency#*/}" == "$check" ]]; then
+                        found="true"
+
+                        break
+                    fi
+                done
+                if [[ "$found" == "true" ]]; then
+                    found="false"
+
+                    continue
+                fi
+            fi
+
+            logEntry "INFO" "Upgrading ${repos[$i]}"
+            tagDetails="$(apiCall "v2/repositories/$dockerHubUser/${repos[$i]}/tags/?page_size=10000")"
+            logEntry "DEBUG" "tagDetails:\n$tagDetails"
+            latestVersion="$(echo $tagDetails | jq -r '.results|.[]|.name' | sort | tail -n1)"
+            newVersion=$((latestVersion+1))
+            logEntry "DEBUG" "${repos[$i]} latest version: $latestVersion"
+            logEntry "DEBUG" "${repos[$i]} new version: $newVersion"
+            docker build "../${repos[$i]}" -t "$dockerHubUser/${repos[$i]}"
+            docker tag "$dockerHubUser/${repos[$i]}" "$dockerHubUser/${repos[$i]}:$newVersion"
+            docker push "$dockerHubUser/${repos[$i]}:latest"
+            docker push "$dockerHubUser/${repos[$i]}:$newVersion"
+            unset repos[$i]
+        done
+    done
+}
+
+upgradeDockers

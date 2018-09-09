@@ -6,10 +6,25 @@ IFS=$'\t\n'
 dockerHubUser="baelish"
 dockerHubPass="$(pass websites/docker-hub | head -n1)"
 
+
+# Get an authentication token from Docker HUB and print it.
+#
+# Returns curl error code.
 getDockerHubAuthToken() {
     curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'${dockerHubUser}'", "password": "'${dockerHubPass}'"}' https://hub.docker.com/v2/users/login/ | jq -r .token
 }
 
+
+# Make an api call to Docker HUB (GET Requests only) and print the response.
+#
+# $1 = path for the GET request
+#
+# Examples:
+#
+#   # List all repositories of a user:
+#   apiCall v2/repositories/baelish/?page_size=100
+#
+# Returns curl error code.
 apiCall() {
     if [[ -z "${DOCKER_HUB_AUTH_TOKEN:-}" ]]; then
         export DOCKER_HUB_AUTH_TOKEN=$(getDockerHubAuthToken)
@@ -18,6 +33,23 @@ apiCall() {
     curl -s -H "Authorization: JWT ${DOCKER_HUB_AUTH_TOKEN}" "https://hub.docker.com/$path"
 }
 
+
+# Print a log entry. Will not print anything if type is "DEBUG" and the "DEBUG"
+# environment variable is set.
+#
+# $1  = log type e.g. DEBUG, WARN or INFO
+# $2> = log message
+#
+# Examples:
+#
+#   # Print an informational message
+#   logEntry INFO "Some information"
+#
+#   # Print a debug message which will only show if "DEBUG" environment
+#   # variable is set
+#   logEntry DEBUG "Some detailed bug trace stuff"
+#
+# Returns nothing.
 logEntry() {
     type="${1^^}"
     shift
@@ -30,24 +62,38 @@ logEntry() {
 
 }
 
+
+# Cycle through a Docker HUB users repositories and update containers for which
+# a Dockerfile exists (In a directory by the same name as the repository one
+# level up from the scripts location). It ensures that containers which depend
+# on other containers that would be updated are done after those containers.
+#
+# Returns nothing.
 upgradeDockers() {
+    #/ get the names of the user's repositories.
     repos=( $(apiCall v2/repositories/${dockerHubUser}/?page_size=10000 | jq -r '.results|.[]|.name') )
 
+    #/ Loop until all repositories have been done.
     while [[ ${!repos[@]} > 0 ]]; do
         for i in "${!repos[@]}"; do
             logEntry "DEBUG" "Processing: $dockerHubUser/${repos[$i]}"
 
+            #/ Skip if no Docker file is found.
             if ! [[ -e "../${repos[$i]}/Dockerfile" ]]; then
                 logEntry "WARN" "\"../${repos[$i]}/Dockerfile\" not found skipping ${repos[$i]}."
+                unset repos[$i]
 
                 continue
             fi
+
+            #/ Find dependency
             dependency="$(grep FROM ../${repos[$i]}/Dockerfile)"
             dependency=${dependency%:*}
             dependency=${dependency#FROM }
 
             logEntry "DEBUG" "Dependency '$dependency'"
 
+            #/ If a dependency is in the list of docker files to update then skip for now.
             if [[ "${dependency%/*}" == "$dockerHubUser" ]]; then
                 for check in "${repos[@]}"; do
                     if [[ "${dependency#*/}" == "$check" ]]; then
@@ -70,13 +116,16 @@ upgradeDockers() {
             newVersion=$((latestVersion+1))
             logEntry "DEBUG" "${repos[$i]} latest version: $latestVersion"
             logEntry "DEBUG" "${repos[$i]} new version: $newVersion"
+
+            #/ do the docker builds, tag and push
             docker build "../${repos[$i]}" -t "$dockerHubUser/${repos[$i]}"
             docker tag "$dockerHubUser/${repos[$i]}" "$dockerHubUser/${repos[$i]}:$newVersion"
-            docker push "$dockerHubUser/${repos[$i]}:latest"
             docker push "$dockerHubUser/${repos[$i]}:$newVersion"
+            docker push "$dockerHubUser/${repos[$i]}:latest"
             unset repos[$i]
         done
     done
 }
+
 
 upgradeDockers

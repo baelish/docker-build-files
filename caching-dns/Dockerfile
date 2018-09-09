@@ -1,4 +1,4 @@
-FROM alpine-with-testing-repo:latest
+FROM baelish/alpine-with-testing-repo:latest
 RUN apk add djbdns dnscache daemontools
 RUN deluser dnscache && adduser -D dnscache && adduser -D dnslog
 RUN rm -rf /etc/dnscache && dnscache-conf dnscache dnslog /etc/dnscache/ 0.0.0.0

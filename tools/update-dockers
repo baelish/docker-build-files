@@ -73,8 +73,11 @@ upgradeDockers() {
     #/ get the names of the user's repositories.
     repos=( $(apiCall v2/repositories/${dockerHubUser}/?page_size=10000 | jq -r '.results|.[]|.name') )
 
+    #/ login to docker hub
+    docker login -u "$dockerHubUser" -p "$dockerHubPass"
+
     #/ Loop until all repositories have been done.
-    while [[ ${!repos[@]} > 0 ]]; do
+    while [[ ${#repos[@]} > 0 ]]; do
         for i in "${!repos[@]}"; do
             logEntry "DEBUG" "Processing: $dockerHubUser/${repos[$i]}"
 
@@ -110,15 +113,11 @@ upgradeDockers() {
             fi
 
             logEntry "INFO" "Upgrading ${repos[$i]}"
-            tagDetails="$(apiCall "v2/repositories/$dockerHubUser/${repos[$i]}/tags/?page_size=10000")"
-            logEntry "DEBUG" "tagDetails:\n$tagDetails"
-            latestVersion="$(echo $tagDetails | jq -r '.results|.[]|.name' | sort | tail -n1)"
-            newVersion=$((latestVersion+1))
-            logEntry "DEBUG" "${repos[$i]} latest version: $latestVersion"
+            newVersion="$(date -u +%Y%m%dT%H%M%SZ)"
             logEntry "DEBUG" "${repos[$i]} new version: $newVersion"
 
             #/ do the docker builds, tag and push
-            docker build "../${repos[$i]}" -t "$dockerHubUser/${repos[$i]}"
+            docker build --pull "../${repos[$i]}" -t "$dockerHubUser/${repos[$i]}"
             docker tag "$dockerHubUser/${repos[$i]}" "$dockerHubUser/${repos[$i]}:$newVersion"
             docker push "$dockerHubUser/${repos[$i]}:$newVersion"
             docker push "$dockerHubUser/${repos[$i]}:latest"

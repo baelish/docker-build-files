@@ -4,7 +4,7 @@ pid=0
 
 runApp() {
     updateApp
-    cd /service
+    cd /service || exit 1
     svscan &
     pid=${!}
     wait $pid
@@ -20,13 +20,15 @@ terminateApp() {
 
 # Update Application
 updateApp(){
-    cp /data/env/* /etc/dnscache/env/
-    cp /data/ip/* /etc/dnscache/root/ip/
-    cp /data/servers/* /etc/dnscache/root/servers/
+    for dir in env root/ip root/servers; do
+      if [ -d "/data/${dir#root/}" ] && [ -n "$(ls "/data/${dir#root}")" ]; then
+        cp -v "/data/${dir#root/}/"* "/etc/dnscache/$dir/"
+      fi
+    done
 }
 
 # When SIGTERM is sent, terminate Application.
-trap 'terminateApp' SIGTERM
+trap 'terminateApp' TERM
 
 ln -s /etc/dnscache /service/
 runApp

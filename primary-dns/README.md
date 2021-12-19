@@ -19,4 +19,4 @@ Create the docker network.
 
 Start the container with specific network requirements.
 
-    docker run -d --net=server-net --ip=10.66.11.1 --name=primary-dns --volume=/var/lib/docker/volumes/primary-dns:/data baelish/primary-dns
+    docker run -d --net=server-net --ip=10.66.11.1 --name=primary-dns --volume=example-data:/data baelish/primary-dns

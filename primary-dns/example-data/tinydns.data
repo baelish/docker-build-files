@@ -1,0 +1,9 @@
+.example.com:10.1.1.1:a:259200
+.example.com:10.1.1.2:b:259200
+
+.1.1.10.in-addr.arpa:10.1.1.1:a:259200
+.1.1.10.in-addr.arpa:10.1.1.2:b:259200
+
+=www.example.com:10.1.1.99
+
+

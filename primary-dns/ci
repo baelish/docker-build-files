@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+tag="$(date -u +%Y%m%dT%H%M%SZ)"
+
+docker build --pull . -t baelish/primary-dns:latest
+docker tag baelish/primary-dns:latest baelish/primary-dns:"$tag"
+
+docker push baelish/primary-dns:latest
+docker push baelish/primary-dns:"$tag"
+

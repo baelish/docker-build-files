@@ -1,7 +1,8 @@
 FROM golang:alpine as builder
 RUN apk add git
 ARG CACHEBUST=
-RUN go get github.com/baelish/alive
+ARG VERSION=v0.2.3
+RUN go install github.com/baelish/alive@"$VERSION"
 
 FROM alpine:latest
 RUN mkdir /app /data

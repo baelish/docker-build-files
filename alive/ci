@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+if [[ -z "${ALIVE_VERSION+x}" ]]; then
+  echo "Which version are we using? (e.g. v0.2.3)"
+  read -r ALIVE_VERSION
+  echo "Want to add a suffix to the image tag? Leave empty if you don't. (e.g. '1'"
+  echo "to create a new image with the same code but a newer base image/go version)"
+  read -r ALIVE_IMAGE_SUFFIX
+  if [[ -z "$ALIVE_IMAGE_SUFFIX" ]]; then
+    unset ALIVE_IMAGE_SUFFIX
+  fi
+fi
+
+tag="$ALIVE_VERSION${ALIVE_IMAGE_SUFFIX+-}${ALIVE_IMAGE_SUFFIX:-}"
+
+docker build --pull --build-arg VERSION="$ALIVE_VERSION" . -t baelish/alive:"$tag"
+docker tag baelish/alive:"$tag" baelish/alive:latest
+
+docker push baelish/alive:latest
+docker push baelish/alive:"$tag"
+

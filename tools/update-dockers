@@ -89,6 +89,14 @@ upgradeDockers() {
                 continue
             fi
 
+            #/ Skip if a ci file is found.
+            if [[ -e "../${repos[$i]}/ci" ]]; then
+                logEntry "WARN" "\"../${repos[$i]}/ci\" found skipping ${repos[$i]}."
+                unset repos[$i]
+
+                continue
+            fi
+
             #/ Find dependency
             dependency="$(grep FROM ../${repos[$i]}/Dockerfile)"
             dependency=${dependency%:*}
